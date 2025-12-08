@@ -1,0 +1,42 @@
+{% extends 'routes/base.html' %}
+
+{% block title %}Stage Details{% endblock %}
+
+{% block content %}
+<h2 class="mb-4 text-center">Routes from {{ stage.name }}</h2>
+
+{% if routes %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>From</th>
+            <th>To</th>
+            <th>SACCO</th>
+            <th>Fare (KSh)</th>
+            <th>Distance (km)</th>
+            <th>Duration (min)</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for route in routes %}
+        <tr>
+            <td>{{ route.from_stage }}</td>
+            <td>{{ route.to_stage }}</td>
+            <td>{{ route.saccos.all|join:", " }}</td>
+            <td>{{ route.fare }}</td>
+            <td>{{ route.distance_km }}</td>
+            <td>{{ route.duration_minutes }}</td>
+            <td>
+                <a href="{% url 'route_details' route.id %}" class="btn btn-sm btn-success">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-center text-danger">No routes available from this stage.</p>
+{% endif %}
+{% endblock %}
+
+

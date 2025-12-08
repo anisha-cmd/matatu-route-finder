@@ -1,0 +1,41 @@
+{% extends 'routes/base.html' %}
+
+{% block title %}Route Reviews{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="mb-4 text-center">Reviews for {{ route.from_stage }} → {{ route.to_stage }}</h2>
+
+    {% if route.reviews.all %}
+        {% for review in route.reviews.all %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ review.user.username }} - {{ review.rating }}/5</h5>
+                <p class="card-text">{{ review.comment }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-center text-muted">No reviews yet. Be the first to review!</p>
+    {% endif %}
+
+    <h4 class="mt-5">Add Your Review</h4>
+    <form method="post" action="{% url 'add_review' route.id %}">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="rating" class="form-label">Rating</label>
+            <select name="rating" id="rating" class="form-select" required>
+                {% for i in "12345" %}
+                <option value="{{ i }}">{{ i }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="comment" class="form-label">Comment</label>
+            <textarea name="comment" id="comment" rows="3" class="form-control"></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Submit Review</button>
+    </form>
+</div>
+{% endblock %}
+

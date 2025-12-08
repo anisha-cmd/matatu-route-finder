@@ -1,0 +1,69 @@
+{% extends 'routes/base.html' %}
+{% load static %}
+
+{% block title %}Route Details{% endblock %}
+
+{% block content %}
+<div class="card mx-auto" style="max-width: 600px;">
+    <img src="{{ route.image.url if route.image else static 'images/matatu4.jpeg' }}" class="card-img-top" alt="Matatu Image">
+
+    <div class="card-body">
+        <h3 class="card-title text-center">
+            {{ route.from_stage }} → {{ route.to_stage }}
+        </h3>
+
+        <p class="card-text mt-3">
+            <strong>Fare (Dynamic):</strong> KSh {{ dynamic_fare }} <br>
+            <strong>Distance:</strong> {{ route.distance_km }} km <br>
+            <strong>Duration:</strong> {{ route.duration_minutes }} mins
+        </p>
+
+        <hr>
+        <h5>Stops Along This Route</h5>
+        <ul class="list-group mb-3">
+            {% for stop in stops %}
+                <li class="list-group-item">{{ stop.order }}. {{ stop.name }}</li>
+            {% empty %}
+                <li class="list-group-item text-muted">No stops added yet.</li>
+            {% endfor %}
+        </ul>
+
+        <!-- SACCO Payments -->
+        {% for sacco in route.saccos.all %}
+            <p><strong>{{ sacco.name }}</strong> - Payment: {{ sacco.get_payment_method_display }}</p>
+            {% if sacco.payment_method == 'MPESA' %}
+                <form action="{% url 'mpesa_pay' route.id %}" method="POST" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="sacco_id" value="{{ sacco.id }}">
+                    <input type="text" name="phone_number" class="form-control mb-2" placeholder="2547XXXXXXXX" required>
+                    <button type="submit" class="btn btn-success w-100">Pay with MPESA</button>
+                </form>
+            {% else %}
+                <button class="btn btn-secondary w-100 mb-3" disabled>{{ sacco.get_payment_method_display }}</button>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Reviews -->
+        <hr>
+        <h5>Reviews</h5>
+        {% if reviews %}
+            {% for review in reviews %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <strong>{{ review.user.username }}</strong> - {{ review.rating }}/5
+                        <p>{{ review.comment }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No reviews yet. Be the first!</p>
+        {% endif %}
+
+        <a href="{% url 'search_routes' %}" class="btn btn-secondary w-100 mb-2">Back to Search</a>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
