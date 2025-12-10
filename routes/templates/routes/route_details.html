@@ -1,0 +1,56 @@
+{% extends 'routes/base.html' %}
+{% load static %}
+
+{% block title %}Route Details | Matatu Route Finder{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="text-center mb-4">{{ route.from_stage.name }} → {{ route.to_stage.name }}</h2>
+    {% if route.image %}
+        <img src="{{ route.image.url }}" class="img-fluid mb-3" alt="Matatu Image">
+    {% else %}
+        <img src="{% static 'images/matatu4.jpeg' %}" class="img-fluid mb-3" alt="Matatu Image">
+    {% endif %}
+
+    <p><strong>Distance:</strong> {{ route.distance_km }} km</p>
+    <p><strong>Duration:</strong> {{ route.duration_minutes }} mins</p>
+    <p><strong>Fare:</strong> KSh {{ dynamic_fare }}</p>
+    <p><strong>SACCO(s):</strong>
+        {% for sacco in route.saccos.all %}
+            {{ sacco.name }}{% if not forloop.last %}, {% endif %}
+        {% empty %}
+            Not assigned
+        {% endfor %}
+    </p>
+
+    <h4>Stops & Payments</h4>
+    <ul>
+        {% for stop in stops %}
+            <li>
+                {{ stop.name }} - KSh {{ stop.fare }}
+                {% for sacco in route.saccos.all %}
+                    {% if sacco.payment_method == 'MPESA' or sacco.payment_method == 'BOTH' %}
+                        <a href="{% url 'mpesa_pay' route.id %}?stop_id={{ stop.id }}" class="btn btn-success btn-sm ms-2">Pay M-Pesa ({{ sacco.name }})</a>
+                    {% endif %}
+                    {% if sacco.payment_method == 'CASH' or sacco.payment_method == 'BOTH' %}
+                        <a href="{% url 'cash_pay' route.id %}?stop_id={{ stop.id }}" class="btn btn-primary btn-sm ms-2">Pay Cash ({{ sacco.name }})</a>
+                    {% endif %}
+                {% endfor %}
+            </li>
+        {% empty %}
+            No stops assigned
+        {% endfor %}
+    </ul>
+
+    <h4>Reviews</h4>
+    <ul>
+        {% for review in reviews %}
+            <li>{{ review.user.username }}: {{ review.rating }}/5 - {{ review.comment }}</li>
+        {% empty %}
+            No reviews yet
+        {% endfor %}
+    </ul>
+
+    <a href="{% url 'add_review' route.id %}" class="btn btn-success mt-3">Add Review</a>
+</div>
+{% endblock %}

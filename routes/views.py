@@ -1,116 +1,144 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.utils import timezone
-from django.db import models
-from .models import Stage, Route, Stop, SACCO, Review
-from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+from django.utils.timezone import now
+from django.contrib import messages
+from .models import Stage, Route, Stop, Review, SACCO
+from .mpesa import lipa_na_mpesa
 
-# Dynamic fare logic example
-def get_dynamic_fare(route):
-    """Adjust fare based on time of day."""
-    now = timezone.localtime().time()  # current local time
-    base_fare = route.fare
-    # Example: rush hour 7-10am, 5-7pm = +20%
-    if (now >= timezone.datetime.strptime("07:00", "%H:%M").time() and now <= timezone.datetime.strptime("10:00", "%H:%M").time()) \
-        or (now >= timezone.datetime.strptime("17:00", "%H:%M").time() and now <= timezone.datetime.strptime("19:00", "%H:%M").time()):
-        return round(base_fare * 1.2, 2)
-    return base_fare
-
-# Home page
+# Home Page
 def home(request):
-    stages = Stage.objects.all()
     popular_routes = Route.objects.all()[:6]
+    stages = Stage.objects.all()
+    stops = Stop.objects.all()
 
-    context = {
-        'stages': stages,
+    current_hour = now().hour
+    dynamic_fares = {route.id: route.get_current_fare(current_hour) for route in popular_routes}
+
+    return render(request, 'routes/home.html', {
         'popular_routes': popular_routes,
-    }
-    return render(request, 'routes/home.html', context)
+        'stages': stages,
+        'stops': stops,
+        'dynamic_fares': dynamic_fares
+    })
 
-# Search routes
+# Search Routes
 def search_routes(request):
-    from_stage_id = request.GET.get('from_stage')
-    to_stage_id = request.GET.get('to_stage')
-    stop_stage_id = request.GET.get('stop_stage')
+    from_id = request.GET.get('from_stage')
+    to_id = request.GET.get('to_stage')
+    stop_id = request.GET.get('stop_stage')
 
     routes = Route.objects.all()
 
-    if from_stage_id and to_stage_id:
-        # Include bidirectional routes
-        routes = routes.filter(
-            (
-                (models.Q(from_stage_id=from_stage_id) & models.Q(to_stage_id=to_stage_id)) |
-                (models.Q(from_stage_id=to_stage_id) & models.Q(to_stage_id=from_stage_id))
-            )
-        )
-    elif from_stage_id:
-        routes = routes.filter(models.Q(from_stage_id=from_stage_id) | models.Q(to_stage_id=from_stage_id))
-    elif to_stage_id:
-        routes = routes.filter(models.Q(from_stage_id=to_stage_id) | models.Q(to_stage_id=to_stage_id))
+    if from_id:
+        routes = routes.filter(Q(from_stage_id=from_id) | Q(to_stage_id=from_id))
 
-    if stop_stage_id:
-        routes = routes.filter(stops__id=stop_stage_id)
+    if to_id:
+        routes = routes.filter(Q(from_stage_id=to_id) | Q(to_stage_id=to_id))
 
-    stages = Stage.objects.all()
+    if stop_id:
+        routes = routes.filter(stops__id=stop_id)
+
+    current_hour = now().hour
+    dynamic_fares = {route.id: route.get_current_fare(current_hour) for route in routes}
+
     context = {
-        'routes': routes.distinct(),
-        'stages': stages,
-        'from_stage': Stage.objects.filter(id=from_stage_id).first() if from_stage_id else None,
-        'to_stage': Stage.objects.filter(id=to_stage_id).first() if to_stage_id else None,
-        'stop': Stage.objects.filter(id=stop_stage_id).first() if stop_stage_id else None,
+        'routes': routes,
+        'from_stage': Stage.objects.filter(id=from_id).first() if from_id else None,
+        'to_stage': Stage.objects.filter(id=to_id).first() if to_id else None,
+        'stop': Stop.objects.filter(id=stop_id).first() if stop_id else None,
+        'dynamic_fares': dynamic_fares
     }
+
     return render(request, 'routes/search_results.html', context)
 
-# Route details
+# Route Details
 def route_details(request, route_id):
     route = get_object_or_404(Route, id=route_id)
-    # Compute dynamic fare
-    route_dynamic_fare = get_dynamic_fare(route)
-    context = {
-        'route': route,
-        'stops': route.stops.all().order_by('order'),
-        'dynamic_fare': route_dynamic_fare,
-        'reviews': route.reviews.all()
-    }
-    return render(request, 'routes/route_details.html', context)
+    stops = route.stops.all()
+    reviews = route.reviews.all()
+    current_hour = now().hour
+    dynamic_fare = route.get_current_fare(current_hour)
 
-# Add review
-@login_required
+    return render(request, 'routes/route_details.html', {
+        'route': route,
+        'stops': stops,
+        'reviews': reviews,
+        'dynamic_fare': dynamic_fare
+    })
+
+# Add Review
 def add_review(request, route_id):
     route = get_object_or_404(Route, id=route_id)
-    if request.method == "POST":
-        rating = int(request.POST.get("rating"))
-        comment = request.POST.get("comment", "")
-        # Check if user already reviewed
-        review, created = Review.objects.update_or_create(
+
+    if request.method == 'POST':
+        rating = request.POST.get('rating')
+        comment = request.POST.get('comment')
+
+        Review.objects.update_or_create(
             user=request.user,
             route=route,
             defaults={'rating': rating, 'comment': comment}
         )
         return redirect('route_details', route_id=route.id)
-    return redirect('route_details', route_id=route.id)
 
-# Optional: view all reviews
-def ad_review(request, route_id):
-    route = get_object_or_404(Route, id=route_id)
-    context = {
-        'route': route,
-    }
-    return render(request, 'routes/ad_review.html', context)
+    return render(request, 'routes/add_review.html', {'route': route})
 
+# Stage Details
+def stage_details(request, stage_id):
+    stage = get_object_or_404(Stage, id=stage_id)
+    routes = Route.objects.filter(Q(from_stage=stage) | Q(to_stage=stage))
 
-# Placeholder MPESA payment
+    return render(request, 'routes/stage.html', {
+        'stage': stage,
+        'routes': routes
+    })
+
+# M-Pesa Payment per Stop
 def mpesa_pay(request, route_id):
     route = get_object_or_404(Route, id=route_id)
-    if request.method == 'POST':
-        sacco_id = request.POST.get('sacco_id')
-        phone_number = request.POST.get('phone_number')
+    stop_id = request.GET.get('stop_id')
+    stop = get_object_or_404(Stop, id=stop_id, route=route)
+
+    if request.method == "POST":
+        phone_number = request.POST.get("phone_number")
+        sacco_id = request.POST.get("sacco_id")
         sacco = get_object_or_404(SACCO, id=sacco_id)
 
-        if sacco.payment_method != 'MPESA':
-            return JsonResponse({"error": "This SACCO does not accept MPESA"}, status=400)
+        try:
+            result = lipa_na_mpesa(
+                phone_number=phone_number,
+                amount=float(stop.fare),
+                account_ref=f"{route.from_stage.name} → {route.to_stage.name} | Stop: {stop.name}",
+                transaction_desc="Matatu Fare Payment"
+            )
+            messages.success(request, f"Payment initiated. Response: {result.get('ResponseDescription')}")
+        except Exception as e:
+            messages.error(request, f"Payment failed: {str(e)}")
 
-        amount = route.fare
-        response = lipa_na_mpesa(phone_number, amount, account_reference=str(route.id),
-                                 transaction_desc="Route Payment", shortcode=sacco.mpesa_shortcode)
-        return JsonResponse(response)
-    return redirect('route_details', route_id=route_id)
+        return redirect("route_details", route_id=route.id)
+
+    return render(request, 'routes/mpesa_pay.html', {
+        'route': route,
+        'stop': stop,
+        'saccos': route.saccos.all()
+    })
+
+
+def cash_pay(request, route_id):
+    route = get_object_or_404(Route, id=route_id)
+    stop_id = request.GET.get('stop_id')
+    stop = get_object_or_404(Stop, id=stop_id, route=route)
+
+    if request.method == "POST":
+        payer_name = request.POST.get("payer_name")
+        sacco_id = request.POST.get("sacco_id")
+        sacco = get_object_or_404(SACCO, id=sacco_id)
+
+        messages.success(request, f"Cash payment for stop '{stop.name}' recorded successfully.")
+        return redirect("route_details", route_id=route.id)
+
+    return render(request, 'routes/cash_pay.html', {
+        'route': route,
+        'stop': stop,
+        'saccos': route.saccos.all()
+    })

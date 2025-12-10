@@ -10,17 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from decouple import config
 from pathlib import Path
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-CONSUMER_KEY = os.getenv("CONSUMER_KEY")
-CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
-SHORTCODE = os.getenv("SHORTCODE")
-PASSKEY = os.getenv("PASSKEY")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "sandbox")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -126,4 +117,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+#MPESA SETTINGS
+
+MPESA_CONSUMER_KEY = config('CONSUMER_KEY')
+MPESA_CONSUMER_SECRET = config('CONSUMER_SECRET')
+MPESA_SHORTCODE = config('MPESA_SHORT_CODE')
+MPESA_PASSKEY = config('PASSKEY')
+MPESA_ENVIRONMENT = config('ENVIRONMENT')
+MPESA_SHORTCODE_TYPE = 'paybill'
+MPESA_EXPRESS_SHORT_CODE = config('MPESA_EXPRESS_SHORT_CODE')
+MPESA_CALLBACK_URL = config('CALLBACK_URL')
 

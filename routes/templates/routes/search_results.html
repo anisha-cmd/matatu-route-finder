@@ -1,52 +1,61 @@
 {% extends 'routes/base.html' %}
-{% load static %}
 
 {% block title %}Search Results | Matatu Route Finder{% endblock %}
 
 {% block content %}
 <div class="container my-5">
-    <h2 class="mb-4 text-center">Search Results</h2>
-
-    <!-- Selected Filters -->
-    <div class="mb-4 text-center">
-        <strong>From:</strong> {{ from_stage.name|default:"Any" }} &nbsp; | &nbsp;
-        <strong>To:</strong> {{ to_stage.name|default:"Any" }} &nbsp; | &nbsp;
-        <strong>Stop:</strong> {{ stop.name|default:"No Stop Selected" }}
-    </div>
+    <h2 class="text-center mb-4">Search Results</h2>
 
     {% if routes %}
-    <div class="row">
+        <div class="row">
         {% for route in routes %}
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm h-100">
-                <img src="{{ route.image.url if route.image else static 'images/matatu4.jpeg' }}" class="card-img-top" alt="Matatu Image">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">{{ route.from_stage }} → {{ route.to_stage }}</h5>
-                    <p class="card-text mb-2">
-                        <strong>SACCO(s):</strong>
-                        {% for sacco in route.saccos.all %}
-                            {{ sacco.name }}{% if not forloop.last %}, {% endif %}
-                        {% empty %}
-                            Not assigned
-                        {% endfor %}
-                        <br>
-                        <strong>Fare:</strong> KSh {{ dynamic_fares|get_item:route.id }}<br>
-                        <strong>Distance:</strong> {{ route.distance_km }} km<br>
-                        <strong>Duration:</strong> {{ route.duration_minutes }} mins
-                    </p>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    {% if route.image %}
+                        <img src="{{ route.image.url }}" class="card-img-top" alt="Matatu Image">
+                    {% else %}
+                        <img src="/static/images/matatu4.jpeg" class="card-img-top" alt="Matatu Image">
+                    {% endif %}
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">{{ route.from_stage.name }} → {{ route.to_stage.name }}</h5>
+                        <p class="card-text mb-2">
+                            <strong>SACCO(s):</strong>
+                            {% for sacco in route.saccos.all %}
+                                {{ sacco.name }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                Not assigned
+                            {% endfor %}
+                            <br>
+                            <strong>Fare:</strong> KSh {{ route.current_fare }}
+                            <br>
+                            <strong>Distance:</strong> {{ route.distance_km }} km
+                            <br>
+                            <strong>Duration:</strong> {{ route.duration_minutes }} mins
+                        </p>
 
-                    <a href="{% url 'route_details' route.id %}" class="btn btn-success mt-auto w-100">View Details</a>
+                        {% for stop in route.stops.all %}
+                            {% for sacco in route.saccos.all %}
+                                {% if sacco.payment_method == 'MPESA' or sacco.payment_method == 'BOTH' %}
+                                    <a href="{% url 'mpesa_pay' route.id %}?stop_id={{ stop.id }}" class="btn btn-success w-100 mb-2">
+                                        Pay with M-Pesa ({{ sacco.name }})
+                                    </a>
+                                {% endif %}
+                                {% if sacco.payment_method == 'CASH' or sacco.payment_method == 'BOTH' %}
+                                    <a href="{% url 'cash_pay' route.id %}?stop_id={{ stop.id }}" class="btn btn-primary w-100 mb-2">
+                                        Pay with Cash ({{ sacco.name }})
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+
+                        <a href="{% url 'route_details' route.id %}" class="btn btn-secondary mt-auto w-100">View Details</a>
+                    </div>
                 </div>
             </div>
-        </div>
         {% endfor %}
-    </div>
+        </div>
     {% else %}
-    <div class="alert alert-warning text-center">
-        No routes found for the selected stages.
-    </div>
+        <p class="text-center">No routes found for your search criteria.</p>
     {% endif %}
 </div>
 {% endblock %}
-
-

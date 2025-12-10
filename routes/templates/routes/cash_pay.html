@@ -1,0 +1,31 @@
+{% extends 'routes/base.html' %}
+
+{% block title %}Cash Payment | Matatu Route Finder{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="text-center mb-4">Cash Payment</h2>
+
+    <div class="card mx-auto" style="max-width: 600px;">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Route: {{ route.from_stage.name }} → {{ route.to_stage.name }}</h5>
+            <p><strong>Stop:</strong> {{ stop.name }}</p>
+            <p><strong>Fare:</strong> KSh {{ stop.fare }}</p>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="sacco_id" value="{{ saccos.first.id }}">
+                
+                <div class="mb-3">
+                    <label for="payer_name" class="form-label">Your Name</label>
+                    <input type="text" class="form-control" id="payer_name" name="payer_name" placeholder="Enter your name" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Confirm Cash Payment</button>
+            </form>
+
+            <a href="{% url 'route_details' route.id %}" class="btn btn-secondary mt-3 w-100">Back to Route</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
